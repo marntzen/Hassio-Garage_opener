@@ -1,0 +1,121 @@
+esphome:
+  name: garage-opener
+  platform: ESP8266
+  board: nodemcu
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api: 
+
+ota:
+  password: "XXXXXXXXXXXXXXXXXXXXXXXXX"
+
+wifi:
+  ssid: "XXXXXXX"
+  password: "XXXXXXXXXX"
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Garage-Opener Fallback Hotspot"
+    password: "XXXXXXXXXXXXX"
+
+captive_portal:
+
+# Send IP Address to HA
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: Garage-opener
+
+# Send WiFi signal strength & uptime to HA
+sensor:
+  - platform: wifi_signal
+    name: Garage-opener WiFi Strength
+    update_interval: 30s
+  - platform: uptime
+    name: Garage-opener Uptime
+
+# The door contact sensor that is attached to nodemcu 
+# Not exposed to HA, instead used to set the 
+# state of the cover.
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: D1
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Garage Door Contact Sensor left"
+    id: contact_sensor_left
+    internal: false
+    filters:
+     - invert:
+      
+  - platform: gpio
+    pin:
+      number: D2
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Garage Door Contact Sensor right"
+    id: contact_sensor_right
+    internal: false
+    filters:
+      - invert:
+
+# The dual relay will deliver the pulse to
+# the garage door opener (not exposed to HA)
+switch:
+  - platform: gpio
+    pin: GPIO14
+    name: "Garage Door Relay left"
+    id: relay1
+    internal: true
+    
+  - platform: gpio
+    pin: GPIO12
+    name: "Garage Door Relay right"
+    id: relay2
+    internal: true
+
+# This creates the actual garage door in HA. The state is based
+# on the contact sensor. Opening/closing the garage door simply
+# turns the relay on/off with a 0.3s delay in between.
+cover:
+  - platform: template
+    device_class: garage
+    name: "Garage Door left"
+    id: template_cov1
+    lambda: |-
+      if (id(contact_sensor_left).state) {
+        return COVER_OPEN;
+      } else {
+        return COVER_CLOSED;
+      }
+    open_action:
+      - switch.turn_on: relay1
+      - delay: 0.3s
+      - switch.turn_off: relay1
+    close_action:
+      - switch.turn_on: relay1
+      - delay: 0.3s
+      - switch.turn_off: relay1
+
+  - platform: template
+    device_class: garage
+    name: "Garage Door right"
+    id: template_cov2
+    lambda: |-
+      if (id(contact_sensor_right).state) {
+        return COVER_OPEN;
+      } else {
+        return COVER_CLOSED;
+      }
+    open_action:
+      - switch.turn_on: relay2
+      - delay: 0.3s
+      - switch.turn_off: relay2
+    close_action:
+      - switch.turn_on: relay2
+      - delay: 0.3s
+      - switch.turn_off: relay2
